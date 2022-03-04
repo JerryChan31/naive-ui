@@ -11,13 +11,9 @@ import {
   Transition,
   CSSProperties,
   provide,
-  InjectionKey,
-  ComputedRef,
   Ref,
   watch,
-  nextTick,
-  renderSlot,
-  Slots
+  nextTick
 } from 'vue'
 import {
   hsv2rgb,
@@ -42,17 +38,17 @@ import {
   toHslString
 } from 'seemly'
 import { useIsMounted, useMergedState } from 'vooks'
-import { VBinder, VFollower, VTarget } from 'vueuc'
+import { VBinder, VFollower, VTarget, FollowerPlacement } from 'vueuc'
 import { clickoutside } from 'vdirs'
 import { colorPickerLight } from '../styles'
 import type { ColorPickerTheme } from '../styles'
 import {
-  MergedTheme,
   ThemeProps,
   useFormItem,
   useConfig,
   useTheme,
-  useLocale
+  useLocale,
+  useThemeClass
 } from '../../_mixins'
 import { call, createKey, useAdjustedTo } from '../../_utils'
 import type { ExtractPublicPropTypes, MaybeArray } from '../../_utils'
@@ -67,6 +63,7 @@ import type { ColorPickerMode, ActionType } from './utils'
 import { OnUpdateValue, OnUpdateValueImpl, RenderLabel } from './interface'
 import ColorPickerSwatches from './ColorPickerSwatches'
 import ColorPreview from './ColorPreview'
+import { colorPickerInjectionKey } from './context'
 import style from './styles/index.cssr'
 
 export const colorPickerPanelProps = {
@@ -86,6 +83,10 @@ export const colorPickerPanelProps = {
     // no hsva by default since browser doesn't support it
     default: () => ['rgb', 'hex', 'hsl']
   },
+  placement: {
+    type: String as PropType<FollowerPlacement>,
+    default: 'bottom-start'
+  },
   to: useAdjustedTo.propTo,
   showAlpha: {
     type: Boolean,
@@ -93,6 +94,10 @@ export const colorPickerPanelProps = {
   },
   showPreview: Boolean,
   swatches: Array as PropType<string[]>,
+  disabled: {
+    type: Boolean as PropType<boolean | undefined>,
+    default: undefined
+  },
   actions: {
     type: Array as PropType<ActionType[]>,
     default: null
@@ -115,12 +120,6 @@ export type ColorPickerProps = ExtractPublicPropTypes<
   typeof colorPickerPanelProps
 >
 
-export const colorPickerInjectionKey: InjectionKey<{
-  themeRef: ComputedRef<MergedTheme<ColorPickerTheme>>
-  colorPickerSlots: Slots
-  renderLabelRef: Ref<RenderLabel | undefined>
-}> = Symbol('colorPickerThemeInjection')
-
 export default defineComponent({
   name: 'ColorPicker',
   props: colorPickerPanelProps,
@@ -129,13 +128,14 @@ export default defineComponent({
     let upcomingValue: string | null = null
 
     const formItem = useFormItem(props)
-    const { mergedSizeRef } = formItem
+    const { mergedSizeRef, mergedDisabledRef } = formItem
     const { localeRef } = useLocale('global')
-    const { mergedClsPrefixRef, namespaceRef } = useConfig(props)
+    const { mergedClsPrefixRef, namespaceRef, inlineThemeDisabled } =
+      useConfig(props)
 
     const themeRef = useTheme(
       'ColorPicker',
-      'ColorPicker',
+      '-color-picker',
       style,
       colorPickerLight,
       props,
@@ -501,6 +501,16 @@ export default defineComponent({
         '--n-divider-color': dividerColor
       }
     })
+    const themeClassHandle = inlineThemeDisabled
+      ? useThemeClass(
+        'color-picker',
+        computed(() => {
+          return mergedSizeRef.value[0]
+        }),
+        cssVarsRef,
+        props
+      )
+      : undefined
 
     function renderPanel (): VNode {
       const { value: rgba } = rgbaRef
@@ -510,11 +520,18 @@ export default defineComponent({
       const { value: mergedClsPrefix } = mergedClsPrefixRef
       return (
         <div
-          class={`${mergedClsPrefix}-color-picker-panel`}
+          class={[
+            `${mergedClsPrefix}-color-picker-panel`,
+            themeClassHandle?.themeClass.value
+          ]}
           onDragstart={(e) => {
             e.preventDefault()
           }}
-          style={cssVarsRef.value as CSSProperties}
+          style={
+            inlineThemeDisabled
+              ? undefined
+              : (cssVarsRef.value as CSSProperties)
+          }
         >
           <div class={`${mergedClsPrefix}-color-picker-control`}>
             <Pallete
@@ -626,6 +643,7 @@ export default defineComponent({
       hsla: hslaRef,
       rgba: rgbaRef,
       mergedShow: mergedShowRef,
+      mergedDisabled: mergedDisabledRef,
       isMounted: useIsMounted(),
       adjustedTo: useAdjustedTo(props),
       mergedValue: mergedValueRef,
@@ -637,14 +655,17 @@ export default defineComponent({
         doUpdateShow(false)
       },
       renderPanel,
-      cssVars: cssVarsRef
+      cssVars: inlineThemeDisabled ? undefined : cssVarsRef,
+      themeClass: themeClassHandle?.themeClass,
+      onRender: themeClassHandle?.onRender
     }
   },
   render () {
-    const { $slots, mergedClsPrefix } = this
+    const { $slots, mergedClsPrefix, onRender } = this
+    onRender?.()
     return (
       <div
-        class={`${mergedClsPrefix}-color-picker`}
+        class={[this.themeClass, `${mergedClsPrefix}-color-picker`]}
         ref="selfRef"
         style={this.cssVars as CSSProperties}
       >
@@ -658,19 +679,18 @@ export default defineComponent({
                       clsPrefix={mergedClsPrefix}
                       value={this.mergedValue}
                       hsla={this.hsla}
+                      disabled={this.mergedDisabled}
                       onClick={this.handleTriggerClick}
                     >
                       {{
                         label: $slots.label
-                          ? () => renderSlot($slots, 'label')
-                          : undefined
                       }}
                     </ColorPickerTrigger>
                   )
                 }}
               </VTarget>,
               <VFollower
-                placement="bottom-start"
+                placement={this.placement}
                 show={this.mergedShow}
                 containerClass={this.namespace}
                 teleportDisabled={this.adjustedTo === useAdjustedTo.tdkey}

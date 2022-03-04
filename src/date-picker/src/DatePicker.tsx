@@ -12,12 +12,11 @@ import {
   CSSProperties,
   toRef,
   Ref,
-  watchEffect,
-  nextTick
+  watchEffect
 } from 'vue'
 import { VBinder, VTarget, VFollower, FollowerPlacement } from 'vueuc'
 import { clickoutside } from 'vdirs'
-import { format, getTime, isValid, getYear, getMonth } from 'date-fns'
+import { format, getTime, isValid } from 'date-fns'
 import { useIsMounted, useMergedState } from 'vooks'
 import { happensIn } from 'seemly'
 import type { Size as TimePickerSize } from '../../time-picker/src/interface'
@@ -25,7 +24,13 @@ import type { DatePickerTheme } from '../styles/light'
 import type { InputInst, InputProps } from '../../input'
 import { NInput } from '../../input'
 import { NBaseIcon } from '../../_internal'
-import { useFormItem, useTheme, useConfig, useLocale } from '../../_mixins'
+import {
+  useFormItem,
+  useTheme,
+  useConfig,
+  useLocale,
+  useThemeClass
+} from '../../_mixins'
 import type { ThemeProps } from '../../_mixins'
 import { DateIcon, ToIcon } from '../../_internal/icons'
 import { warn, call, useAdjustedTo, createKey, warnOnce } from '../../_utils'
@@ -36,7 +41,7 @@ import {
   uniCalendarValidation,
   dualCalendarValidation
 } from './validation-utils'
-import { MONTH_ITEM_HEIGHT, START_YEAR, DatePickerType } from './config'
+import { DatePickerType } from './config'
 import type {
   OnUpdateValue,
   OnUpdateValueImpl,
@@ -49,7 +54,8 @@ import type {
   DefaultTime,
   FormattedValue,
   OnUpdateFormattedValue,
-  OnUpdateFormattedValueImpl
+  OnUpdateFormattedValueImpl,
+  DatePickerInst
 } from './interface'
 import { datePickerInjectionKey } from './interface'
 import DatetimePanel from './panel/datetime'
@@ -145,12 +151,13 @@ export default defineComponent({
     }
     const { localeRef, dateLocaleRef } = useLocale('DatePicker')
     const formItem = useFormItem(props)
-    const { mergedSizeRef, mergedDisabledRef } = formItem
+    const { mergedSizeRef, mergedDisabledRef, mergedStatusRef } = formItem
     const {
-      NConfigProvider,
+      mergedComponentPropsRef,
       mergedClsPrefixRef,
       mergedBorderedRef,
-      namespaceRef
+      namespaceRef,
+      inlineThemeDisabled
     } = useConfig(props)
     const panelInstRef = ref<PanelRef | null>(null)
     const triggerElRef = ref<HTMLElement | null>(null)
@@ -242,7 +249,7 @@ export default defineComponent({
     const rangeEndInputValueRef = ref('')
     const themeRef = useTheme(
       'DatePicker',
-      'DatePicker',
+      '-date-picker',
       style,
       datePickerLight,
       props,
@@ -250,8 +257,7 @@ export default defineComponent({
     )
     const timePickerSizeRef = computed<TimePickerSize>(() => {
       return (
-        NConfigProvider?.mergedComponentPropsRef.value?.DatePicker
-          ?.timePickerSize || 'small'
+        mergedComponentPropsRef?.value?.DatePicker?.timePickerSize || 'small'
       )
     })
     const isRangeRef = computed(() => {
@@ -458,29 +464,6 @@ export default defineComponent({
         disableUpdateOnClose
       })
     }
-    function scrollPickerColumns (value?: number): void {
-      if (!panelInstRef.value) return
-      const { monthScrollRef, yearScrollRef } = panelInstRef.value
-      const { value: mergedValue } = mergedValueRef
-      if (monthScrollRef) {
-        const monthIndex =
-          value === undefined
-            ? mergedValue === null
-              ? getMonth(Date.now())
-              : getMonth(mergedValue as number)
-            : getMonth(value)
-        monthScrollRef.scrollTo({ top: monthIndex * MONTH_ITEM_HEIGHT })
-      }
-      if (yearScrollRef) {
-        const yearIndex =
-          (value === undefined
-            ? mergedValue === null
-              ? getYear(Date.now())
-              : getYear(mergedValue as number)
-            : getYear(value)) - START_YEAR
-        yearScrollRef.scrollTo({ top: yearIndex * MONTH_ITEM_HEIGHT })
-      }
-    }
 
     // --- Panel update value
     function handlePanelUpdateValue (
@@ -623,10 +606,6 @@ export default defineComponent({
     function openCalendar (): void {
       if (mergedDisabledRef.value || mergedShowRef.value) return
       doUpdateShow(true)
-      const { type } = props
-      if (type === 'month' || type === 'year' || type === 'quarter') {
-        void nextTick(scrollPickerColumns)
-      }
     }
     function closeCalendar ({
       returnFocus,
@@ -671,7 +650,6 @@ export default defineComponent({
     const uniVaidation = uniCalendarValidation(props, pendingValueRef)
     const dualValidation = dualCalendarValidation(props, pendingValueRef)
     provide(datePickerInjectionKey, {
-      scrollPickerColumns,
       mergedClsPrefixRef,
       mergedThemeRef: themeRef,
       timePickerSizeRef,
@@ -686,7 +664,154 @@ export default defineComponent({
       ...dualValidation,
       datePickerSlots: slots
     })
+
+    const exposedMethods: DatePickerInst = {
+      focus: () => {
+        inputInstRef.value?.focus()
+      },
+      blur: () => {
+        inputInstRef.value?.blur()
+      }
+    }
+
+    const triggerCssVarsRef = computed(() => {
+      const {
+        common: { cubicBezierEaseInOut },
+        self: { iconColor, iconColorDisabled }
+      } = themeRef.value
+      return {
+        '--n-bezier': cubicBezierEaseInOut,
+        '--n-icon-color': iconColor,
+        '--n-icon-color-disabled': iconColorDisabled
+      }
+    })
+    const triggerThemeClassHandle = inlineThemeDisabled
+      ? useThemeClass(
+        'date-picker-trigger',
+        undefined,
+        triggerCssVarsRef,
+        props
+      )
+      : undefined
+
+    const cssVarsRef = computed(() => {
+      const { type } = props
+      const {
+        common: { cubicBezierEaseInOut },
+        self: {
+          calendarTitleFontSize,
+          calendarDaysFontSize,
+          itemFontSize,
+          itemTextColor,
+          itemColorDisabled,
+          itemColorIncluded,
+          itemColorHover,
+          itemColorActive,
+          itemBorderRadius,
+          itemTextColorDisabled,
+          itemTextColorActive,
+          panelColor,
+          panelTextColor,
+          arrowColor,
+          calendarTitleTextColor,
+          panelActionDividerColor,
+          panelHeaderDividerColor,
+          calendarDaysDividerColor,
+          panelBoxShadow,
+          panelBorderRadius,
+          calendarTitleFontWeight,
+          panelExtraFooterPadding,
+          panelActionPadding,
+          itemSize,
+          itemCellWidth,
+          itemCellHeight,
+          scrollItemWidth,
+          scrollItemHeight,
+          calendarTitlePadding,
+          calendarTitleHeight,
+          calendarDaysHeight,
+          calendarDaysTextColor,
+          arrowSize,
+          panelHeaderPadding,
+          calendarDividerColor,
+          calendarTitleGridTempateColumns,
+          iconColor,
+          iconColorDisabled,
+          scrollItemBorderRadius,
+          calendarTitleColorHover,
+          [createKey('calendarLeftPadding', type)]: calendarLeftPadding,
+          [createKey('calendarRightPadding', type)]: calendarRightPadding
+        }
+      } = themeRef.value
+      return {
+        '--n-bezier': cubicBezierEaseInOut,
+
+        '--n-panel-border-radius': panelBorderRadius,
+        '--n-panel-color': panelColor,
+        '--n-panel-box-shadow': panelBoxShadow,
+        '--n-panel-text-color': panelTextColor,
+
+        // panel header
+        '--n-panel-header-padding': panelHeaderPadding,
+        '--n-panel-header-divider-color': panelHeaderDividerColor,
+
+        // panel calendar
+        '--n-calendar-left-padding': calendarLeftPadding,
+        '--n-calendar-right-padding': calendarRightPadding,
+        '--n-calendar-title-color-hover': calendarTitleColorHover,
+        '--n-calendar-title-height': calendarTitleHeight,
+        '--n-calendar-title-padding': calendarTitlePadding,
+        '--n-calendar-title-font-size': calendarTitleFontSize,
+        '--n-calendar-title-font-weight': calendarTitleFontWeight,
+        '--n-calendar-title-text-color': calendarTitleTextColor,
+        '--n-calendar-title-grid-template-columns':
+          calendarTitleGridTempateColumns,
+        '--n-calendar-days-height': calendarDaysHeight,
+        '--n-calendar-days-divider-color': calendarDaysDividerColor,
+        '--n-calendar-days-font-size': calendarDaysFontSize,
+        '--n-calendar-days-text-color': calendarDaysTextColor,
+        '--n-calendar-divider-color': calendarDividerColor,
+
+        // panel action
+        '--n-panel-action-padding': panelActionPadding,
+        '--n-panel-extra-footer-padding': panelExtraFooterPadding,
+        '--n-panel-action-divider-color': panelActionDividerColor,
+
+        // panel item
+        '--n-item-font-size': itemFontSize,
+        '--n-item-border-radius': itemBorderRadius,
+        '--n-item-size': itemSize,
+        '--n-item-cell-width': itemCellWidth,
+        '--n-item-cell-height': itemCellHeight,
+        '--n-item-text-color': itemTextColor,
+        '--n-item-color-included': itemColorIncluded,
+        '--n-item-color-disabled': itemColorDisabled,
+        '--n-item-color-hover': itemColorHover,
+        '--n-item-color-active': itemColorActive,
+        '--n-item-text-color-disabled': itemTextColorDisabled,
+        '--n-item-text-color-active': itemTextColorActive,
+
+        // scroll item
+        '--n-scroll-item-width': scrollItemWidth,
+        '--n-scroll-item-height': scrollItemHeight,
+        '--n-scroll-item-border-radius': scrollItemBorderRadius,
+
+        // panel arrow
+        '--n-arrow-size': arrowSize,
+        '--n-arrow-color': arrowColor,
+
+        // icon in trigger
+        '--n-icon-color': iconColor,
+        '--n-icon-color-disabled': iconColorDisabled
+      }
+    })
+    const themeClassHandle = inlineThemeDisabled
+      ? useThemeClass('date-picker', undefined, cssVarsRef, props)
+      : undefined
+
     return {
+      ...exposedMethods,
+      mergedStatus: mergedStatusRef,
       mergedClsPrefix: mergedClsPrefixRef,
       mergedBordered: mergedBorderedRef,
       namespace: namespaceRef,
@@ -726,130 +851,17 @@ export default defineComponent({
       handlePanelConfirm,
       mergedTheme: themeRef,
       actions: mergedActionsRef,
-      triggerCssVars: computed(() => {
-        const {
-          common: { cubicBezierEaseInOut },
-          self: { iconColor, iconColorDisabled }
-        } = themeRef.value
-        return {
-          '--n-bezier': cubicBezierEaseInOut,
-          '--n-icon-color': iconColor,
-          '--n-icon-color-disabled': iconColorDisabled
-        }
-      }),
-      cssVars: computed(() => {
-        const { type } = props
-        const {
-          common: { cubicBezierEaseInOut },
-          self: {
-            calendarTitleFontSize,
-            calendarDaysFontSize,
-            itemFontSize,
-            itemTextColor,
-            itemColorDisabled,
-            itemColorIncluded,
-            itemColorHover,
-            itemColorActive,
-            itemBorderRadius,
-            itemTextColorDisabled,
-            itemTextColorActive,
-            panelColor,
-            panelTextColor,
-            arrowColor,
-            calendarTitleTextColor,
-            panelActionDividerColor,
-            panelHeaderDividerColor,
-            calendarDaysDividerColor,
-            panelBoxShadow,
-            panelBorderRadius,
-            calendarTitleFontWeight,
-            panelExtraFooterPadding,
-            panelActionPadding,
-            itemSize,
-            itemCellWidth,
-            itemCellHeight,
-            scrollItemWidth,
-            scrollItemHeight,
-            calendarTitlePadding,
-            calendarTitleHeight,
-            calendarDaysHeight,
-            calendarDaysTextColor,
-            arrowSize,
-            panelHeaderPadding,
-            calendarDividerColor,
-            calendarTitleGridTempateColumns,
-            iconColor,
-            iconColorDisabled,
-            scrollItemBorderRadius,
-            [createKey('calendarLeftPadding', type)]: calendarLeftPadding,
-            [createKey('calendarRightPadding', type)]: calendarRightPadding
-          }
-        } = themeRef.value
-        return {
-          '--n-bezier': cubicBezierEaseInOut,
-
-          '--n-panel-border-radius': panelBorderRadius,
-          '--n-panel-color': panelColor,
-          '--n-panel-box-shadow': panelBoxShadow,
-          '--n-panel-text-color': panelTextColor,
-
-          // panel header
-          '--n-panel-header-padding': panelHeaderPadding,
-          '--n-panel-header-divider-color': panelHeaderDividerColor,
-
-          // panel calendar
-          '--n-calendar-left-padding': calendarLeftPadding,
-          '--n-calendar-right-padding': calendarRightPadding,
-          '--n-calendar-title-height': calendarTitleHeight,
-          '--n-calendar-title-padding': calendarTitlePadding,
-          '--n-calendar-title-font-size': calendarTitleFontSize,
-          '--n-calendar-title-font-weight': calendarTitleFontWeight,
-          '--n-calendar-title-text-color': calendarTitleTextColor,
-          '--n-calendar-title-grid-template-columns':
-            calendarTitleGridTempateColumns,
-          '--n-calendar-days-height': calendarDaysHeight,
-          '--n-calendar-days-divider-color': calendarDaysDividerColor,
-          '--n-calendar-days-font-size': calendarDaysFontSize,
-          '--n-calendar-days-text-color': calendarDaysTextColor,
-          '--n-calendar-divider-color': calendarDividerColor,
-
-          // panel action
-          '--n-panel-action-padding': panelActionPadding,
-          '--n-panel-extra-footer-padding': panelExtraFooterPadding,
-          '--n-panel-action-divider-color': panelActionDividerColor,
-
-          // panel item
-          '--n-item-font-size': itemFontSize,
-          '--n-item-border-radius': itemBorderRadius,
-          '--n-item-size': itemSize,
-          '--n-item-cell-width': itemCellWidth,
-          '--n-item-cell-height': itemCellHeight,
-          '--n-item-text-color': itemTextColor,
-          '--n-item-color-included': itemColorIncluded,
-          '--n-item-color-disabled': itemColorDisabled,
-          '--n-item-color-hover': itemColorHover,
-          '--n-item-color-active': itemColorActive,
-          '--n-item-text-color-disabled': itemTextColorDisabled,
-          '--n-item-text-color-active': itemTextColorActive,
-
-          // scroll item
-          '--n-scroll-item-width': scrollItemWidth,
-          '--n-scroll-item-height': scrollItemHeight,
-          '--n-scroll-item-border-radius': scrollItemBorderRadius,
-
-          // panel arrow
-          '--n-arrow-size': arrowSize,
-          '--n-arrow-color': arrowColor,
-
-          // icon in trigger
-          '--n-icon-color': iconColor,
-          '--n-icon-color-disabled': iconColorDisabled
-        }
-      })
+      triggerCssVars: inlineThemeDisabled ? undefined : triggerCssVarsRef,
+      triggerThemeClass: triggerThemeClassHandle?.themeClass,
+      triggerOnRender: triggerThemeClassHandle?.onRender,
+      cssVars: inlineThemeDisabled ? undefined : cssVarsRef,
+      themeClass: themeClassHandle?.themeClass,
+      onRender: themeClassHandle?.onRender
     }
   },
   render () {
-    const { clearable } = this
+    const { clearable, triggerOnRender } = this
+    triggerOnRender?.()
     const commonInputProps: InputProps = {
       bordered: this.mergedBordered,
       size: this.mergedSize,
@@ -876,7 +888,9 @@ export default defineComponent({
       actions: this.actions,
       shortcuts: this.shortcuts,
       style: this.cssVars as CSSProperties,
-      defaultTime: this.defaultTime
+      defaultTime: this.defaultTime,
+      themeClass: this.themeClass,
+      onRender: this.onRender
     }
     const { mergedClsPrefix } = this
     return (
@@ -885,7 +899,8 @@ export default defineComponent({
         class={[
           `${mergedClsPrefix}-date-picker`,
           this.mergedDisabled && `${mergedClsPrefix}-date-picker--disabled`,
-          this.isRange && `${mergedClsPrefix}-date-picker--range`
+          this.isRange && `${mergedClsPrefix}-date-picker--range`,
+          this.triggerThemeClass
         ]}
         style={this.triggerCssVars as CSSProperties}
         onKeydown={this.handleKeyDown}
@@ -899,6 +914,7 @@ export default defineComponent({
                     this.isRange ? (
                       <NInput
                         ref="inputInstRef"
+                        status={this.mergedStatus}
                         value={[this.displayStartTime, this.displayEndTime]}
                         placeholder={[
                           this.localizedStartPlaceholder,
@@ -941,6 +957,7 @@ export default defineComponent({
                     ) : (
                       <NInput
                         ref="inputInstRef"
+                        status={this.mergedStatus}
                         value={this.displayTime}
                         placeholder={this.localizedPlacehoder}
                         textDecoration={
@@ -974,7 +991,7 @@ export default defineComponent({
                 containerClass={this.namespace}
                 to={this.adjustedTo}
                 teleportDisabled={this.adjustedTo === useAdjustedTo.tdkey}
-                placement="bottom-start"
+                placement={this.placement}
               >
                 {{
                   default: () => (

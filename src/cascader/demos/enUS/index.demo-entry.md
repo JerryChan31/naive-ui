@@ -5,16 +5,17 @@ Cascader can be used to display and select tree structured data.
 ## Demos
 
 ```demo
-single
-multiple
-size
-single-lazy
-multiple-lazy
-action
-virtual
-check-strategy
-custom-field
+single.vue
+multiple.vue
+size.vue
+single-lazy.vue
+multiple-lazy.vue
+action.vue
+virtual.vue
+check-strategy.vue
+custom-field.vue
 custom-render.vue
+focus.vue
 ```
 
 ## API
@@ -27,6 +28,7 @@ custom-render.vue
 | check-strategy | `string` | `'all'` | The way to show checked options. `all` means showing all checked node. `parent` means showing all checked parent node when all child node are checked (not working in single select mode). `child` means showing all child node. |  |
 | children-field | `string` | `'children'` | The children field in `CascaderOption`. |  |
 | clearable | `boolean` | `false` | Whether the cascader is clearable. |  |
+| clear-filter-after-select | `boolean` | `true` | When multiple and filter is true, whether to clear filter keyword after select an option. | 2.25.3 |
 | default-value | `string \| number \| Array<number \| string> \| null` | `null` | Data selected by default if no value is set. |  |
 | disabled | `boolean` | `false` | Whether to disable the cascader. |  |
 | expand-trigger | `'click' \| 'hover'` | `'click'` | If `remote` is set, `'hover'` won't work. |  |
@@ -38,6 +40,7 @@ custom-render.vue
 | multiple | `boolean` | `false` | Whether to allow multiple options being selected. |  |
 | options | `CascaderOption[]` | required | Options of the cascader. |  |
 | placeholder | `string` | `'Please Select'` | Placeholder text. |  |
+| placement | `'top-start' \| 'top' \| 'top-end' \| 'right-start' \| 'right' \| 'right-end' \| 'bottom-start' \| 'bottom' \| 'bottom-end' \| 'left-start' \| 'left' \| 'left-end'` | `'bottom-start'` | Cascader placement. | 2.25.0 |
 | remote | `boolean` | `false` | Whether to obtain data remotely. |  |
 | render-label | `(option: CascaderOption, checked: boolean) => VNodeChild` | `undefined` | Render function for cascader menu option label. | 2.24.0 |
 | separator | `string` | `' / '` | Selected option path value separator (used with `show-path`). |  |
@@ -67,3 +70,10 @@ custom-render.vue
 | --- | --- | --- | --- |
 | action | `()` | Action content displayed in the cascading menu. |  |
 | empty | `()` | Empty state slot for the options cascading menu. | 2.22.0 |
+
+### Cascader Methods
+
+| Name  | Type         | Description | Version |
+| ----- | ------------ | ----------- | ------- |
+| focus | `() => void` | Focus.      | 2.24.2  |
+| blur  | `() => void` | Blur.       | 2.24.2  |

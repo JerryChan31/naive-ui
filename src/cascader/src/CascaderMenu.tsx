@@ -8,14 +8,15 @@ import {
   inject,
   nextTick,
   Transition,
-  withDirectives,
-  renderSlot
+  withDirectives
 } from 'vue'
 import { FollowerPlacement } from 'vueuc'
 import { clickoutside } from 'vdirs'
+import FocusDetector from '../../_internal/focus-detector'
+import { MenuMaskRef } from '../../_internal/menu-mask'
+import { resolveSlot, resolveWrappedSlot } from '../../_utils'
 import { NEmpty } from '../../empty'
 import { NBaseMenuMask } from '../../_internal'
-import { MenuMaskRef } from '../../_internal/menu-mask'
 import NCascaderSubmenu from './CascaderSubmenu'
 import {
   cascaderInjectionKey,
@@ -24,7 +25,6 @@ import {
   MenuModel,
   Value
 } from './interface'
-import FocusDetector from '../../_internal/focus-detector'
 
 export default defineComponent({
   name: 'NCascaderMenu',
@@ -130,7 +130,7 @@ export default defineComponent({
     }
   },
   render () {
-    const { submenuInstRefs, mergedClsPrefix, $slots, mergedTheme } = this
+    const { submenuInstRefs, mergedClsPrefix, mergedTheme } = this
     return (
       <Transition name="fade-in-scale-up-transition" appear={this.isMounted}>
         {{
@@ -174,7 +174,7 @@ export default defineComponent({
                   </div>
                 ) : (
                   <div class={`${mergedClsPrefix}-cascader-menu__empty`}>
-                    {renderSlot($slots, 'empty', undefined, () => [
+                    {resolveSlot(this.$slots.empty, () => [
                       <NEmpty
                         theme={mergedTheme.peers.Empty}
                         themeOverrides={mergedTheme.peerOverrides.Empty}
@@ -182,15 +182,17 @@ export default defineComponent({
                     ])}
                   </div>
                 )}
-                {$slots.action && (
-                  <div
-                    class={`${mergedClsPrefix}-cascader-menu-action`}
-                    data-action
-                  >
-                    {{
-                      default: $slots.action
-                    }}
-                  </div>
+                {resolveWrappedSlot(
+                  this.$slots.action,
+                  (children) =>
+                    children && (
+                      <div
+                        class={`${mergedClsPrefix}-cascader-menu-action`}
+                        data-action
+                      >
+                        {children}
+                      </div>
+                    )
                 )}
                 <FocusDetector onFocus={this.onTabout} />
               </div>,

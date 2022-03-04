@@ -1,12 +1,13 @@
-import { Ref, InjectionKey, CSSProperties } from 'vue'
+import { Ref, CSSProperties } from 'vue'
 import { ImageGroupProps } from '../../image'
 import type { MergedTheme } from '../../_mixins'
+import { createInjectionKey } from '../../_utils'
 import type { UploadTheme } from '../styles'
 
 export interface FileInfo {
   id: string
   name: string
-  percentage: number
+  percentage?: number
   status: 'pending' | 'uploading' | 'finished' | 'removed' | 'error'
   url?: string | null
   file?: File | null
@@ -78,15 +79,17 @@ export interface UploadInjection {
   maxReachedRef: Ref<boolean>
   abstractRef: Ref<boolean>
   imageGroupPropsRef: Ref<ImageGroupProps | undefined>
-  cssVarsRef: Ref<CSSProperties>
+  cssVarsRef: undefined | Ref<CSSProperties>
+  themeClassRef: undefined | Ref<string>
+  onRender: undefined | (() => void)
   submit: (fileId?: string) => void
   getFileThumbnailUrl: (file: FileInfo) => Promise<string>
   handleFileAddition: (files: FileList | null, e?: Event) => void
   openOpenFileDialog: () => void
 }
 
-export const uploadInjectionKey: InjectionKey<UploadInjection> =
-  Symbol('upload')
+export const uploadInjectionKey =
+  createInjectionKey<UploadInjection>('n-upload')
 
 export interface XhrHandlers {
   handleXHRLoad: (e: ProgressEvent) => void
@@ -98,6 +101,7 @@ export interface XhrHandlers {
 export interface UploadInst {
   openOpenFileDialog: () => void
   submit: () => void
+  clear: () => void
 }
 
 export type OnBeforeUpload = (data: {

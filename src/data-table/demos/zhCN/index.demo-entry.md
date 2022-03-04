@@ -12,7 +12,7 @@
 </n-alert>
 
 ```demo
-basic
+basic.vue
 empty
 border
 size
@@ -37,12 +37,13 @@ render-header
 custom-style
 ajax-usage
 virtual
-custom-filter-menu
+custom-filter-menu.vue
 tree
 flex-height
 striped
 simple-editable
 switchable-editable
+context-menu.vue
 fixed-column-debug
 fixed-column2-debug
 scroll-debug
@@ -72,7 +73,7 @@ height-debug
 | min-height | `number \| string` | `undefined` | 表格内容的最低高度，可以是 CSS 属性值 |
 | pagination | `false \| object` | `false` | 属性参考 [Pagination props](pagination#Pagination-Props) |
 | remote | `boolean` | `false` | 表格是否自动分页数据，在异步的状况下你可能需要把它设为 `true` |
-| row-class-name | `string \| (rowData: object, index : number) => string \| object` | `undefined` | 每一行上的类名 |
+| row-class-name | `string \| (rowData: object, index : number) => string` | `undefined` | 每一行上的类名 |
 | row-key | `(rowData: object) => (number \| string)` | `undefined` | 通过行数据创建行的 key（如果你不想给每一行加上 key） |
 | row-props | `(rowData: object, rowIndex : number) => object` | `undefined` | 自定义行属性 |
 | scroll-x | `number \| string` | `undefined` | 表格内容的横向宽度，如果列被水平固定了，则需要设定它 |
@@ -115,9 +116,11 @@ height-debug
 | options | `Array<'all' \| 'none' \| { label: string, key: string \| number, onSelect: (pageData: RowData) => void }>` | `undefined` | 自定义选择项的选项，只对 `type='selection'` 生效 |  |
 | render | `(rowData: object, rowIndex: number) => VNodeChild` | `undefined` | 渲染函数，渲染这一列的每一行的单元格 |  |
 | renderExpand | `(rowData: object, rowIndex: number) => VNodeChild` | `undefined` | 展开区域的渲染函数，仅在 `type` 为 `'expand'` 的时候生效 |  |
-| renderFilterMenu | `(actions: { hide: () => void }) => VNodeChild` | `undefined` | 渲染函数，渲染这一列的过滤器菜单 |  |
-| renderFilterIcon | `(options: { active: boolean, show: boolean }) => VNodeChild` | `undefined` | 渲染函数，渲染过滤器图标 |  |
 | renderFilter | `(options: { active: boolean, show: boolean }) => VNodeChild` | `undefined` | 渲染函数，渲染过滤器触发元素 |  |
+| renderFilterIcon | `(options: { active: boolean, show: boolean }) => VNodeChild` | `undefined` | 渲染函数，渲染过滤器图标 |  |
+| renderFilterMenu | `(actions: { hide: () => void }) => VNodeChild` | `undefined` | 渲染函数，渲染这一列的过滤器菜单 |  |
+| renderSorter | `(options: { order: 'descend' \| 'ascend' \| false }) => VNodeChild` | `undefined` | 渲染函数，渲染排序触发 | 2.24.2 |
+| renderSorterIcon | `(options: { order: 'descend' \| 'ascend' \| false }) => VNodeChild` | `undefined` | 渲染函数，渲染排序图标 | 2.24.2 |
 | rowSpan | `(rowData: object, rowIndex: number) => number` | `undefined` | 该列单元格的 row span |  |
 | sortOrder | `'descend' \| 'ascend' \| false` | `undefined` | 受控状态下表格的排序方式。如果多列都设定了有效值，那么只有第一个会生效 |  |
 | sorter | `boolean \| function \| 'default'` | `undefined` | 这一列的排序方法。如果设为 `'default'` 表格将会使用一个内置的排序函数；如果设为 `true`，表格将只会在这列展示一个排序图标，在异步的时候可能有用。其他情况下它工作的方式类似 `Array.sort` 的对比函数 |  |
@@ -132,14 +135,14 @@ height-debug
 type DataTableCreateSummary = (pageData: RowData[]) =>
   | Array<{
       [columnKey: string]: {
-        value?: string | number
+        value?: VNodeChild
         colSpan?: number
         rowSpan?: number
       }
     }>
   | {
       [columnKey: string]: {
-        value?: string | number
+        value?: VNodeChild
         colSpan?: number
         rowSpan?: number
       }

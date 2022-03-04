@@ -1,4 +1,11 @@
-import { h, ref, defineComponent, provide, PropType } from 'vue'
+import {
+  h,
+  ref,
+  defineComponent,
+  provide,
+  PropType,
+  ExtractPropTypes
+} from 'vue'
 import { NPopover, PopoverInst, PopoverTrigger } from '../../popover'
 import { popoverBaseProps } from '../../popover/src/Popover'
 import { omit, keep, call } from '../../_utils'
@@ -34,6 +41,8 @@ const popconfirmProps = {
 
 export type PopconfirmProps = ExtractPublicPropTypes<typeof popconfirmProps>
 
+export type PopconfirmSetupProps = ExtractPropTypes<typeof popconfirmProps>
+
 export default defineComponent({
   name: 'Popconfirm',
   props: popconfirmProps,
@@ -42,7 +51,7 @@ export default defineComponent({
     const { mergedClsPrefixRef } = useConfig()
     const themeRef = useTheme(
       'Popconfirm',
-      'Popconfirm',
+      '-popconfirm',
       style,
       popconfirmLight,
       props,
@@ -71,7 +80,8 @@ export default defineComponent({
     }
     provide(popconfirmInjectionKey, {
       mergedThemeRef: themeRef,
-      mergedClsPrefixRef
+      mergedClsPrefixRef,
+      props
     })
     return {
       mergedTheme: themeRef,

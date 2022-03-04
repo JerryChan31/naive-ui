@@ -12,7 +12,7 @@ DataTable is used to displays rows of structured data.
   </n-alert>
 
 ```demo
-basic
+basic.vue
 empty
 border
 size
@@ -37,12 +37,13 @@ render-header
 custom-style
 ajax-usage
 virtual
-custom-filter-menu
+custom-filter-menu.vue
 tree
 flex-height
 striped
 simple-editable
 switchable-editable
+context-menu.vue
 ```
 
 ## API
@@ -68,7 +69,7 @@ switchable-editable
 | min-height | `number \| string` | `undefined` | The min-height of the table content. Can be a CSS value. |
 | pagination | `false \| object` | `false` | See [Pagination props](pagination#Pagination-Props) |
 | remote | `boolean` | `false` | If data-table do automatic paging. You may set it to `false` in async usage. |
-| row-class-name | `string \| (rowData: object, rowIndex : number) => string \| object` | `undefined` | Class name of each row. |
+| row-class-name | `string \| (rowData: object, rowIndex : number) => string` | `undefined` | Class name of each row. |
 | row-key | `(rowData: object) => (number \| string)` | `undefined` | Generate the key of the row by row data (if you don't want to set the key). |
 | row-props | `(rowData: object, rowIndex : number) => object` | `undefined` | Customize row attributes. |
 | scroll-x | `number \| string` | `undefined` | If columns are horizontal fixed, scroll-x need to be set. |
@@ -111,9 +112,11 @@ switchable-editable
 | options | `Array<'all' \| 'none' \| { label: string, key: string \| number, onSelect: (pageData: RowData) => void }>` | `undefined` | Options of custom selection. Only work with `type='selection'`. |  |
 | render | `(rowData: object, rowIndex: number) => VNodeChild` | `undefined` | Render function of column row cell. |  |
 | renderExpand | `(rowData: object, rowIndex: number) => VNodeChild` | `undefined` | Render function of the expand area. Only works when `type` is `'expand'`. |  |
-| renderFilterMenu | `(actions: { hide: () => void }) => VNodeChild` | `undefined` | Render function of column filter menu. |  |
-| renderFilterIcon | `(options: { active: boolean, show: boolean }) => VNodeChild` | `undefined` | Render function of column filter icon. |  |
 | renderFilter | `(options: { active: boolean, show: boolean }) => VNodeChild` | `undefined` | Render function of column filter trigger. |  |
+| renderFilterIcon | `(options: { active: boolean, show: boolean }) => VNodeChild` | `undefined` | Render function of column filter icon. |  |
+| renderFilterMenu | `(actions: { hide: () => void }) => VNodeChild` | `undefined` | Render function of column filter menu. |  |
+| renderSorter | `(options: { order: 'descend' \| 'ascend' \| false }) => VNodeChild` | `undefined` | Render function of column sorter trigger. | 2.24.2 |
+| renderSorterIcon | `(options: { order: 'descend' \| 'ascend' \| false }) => VNodeChild` | `undefined` | Render function of column sorter icon. | 2.24.2 |
 | rowSpan | `(rowData: object, rowIndex: number) => number` | `undefined` | The row span of the cell. |  |
 | sortOrder | `'descend' \| 'ascend' \| false` | `undefined` | The controlled sort order of the column. If multiple columns' sortOrder is set, the first one will affect. |  |
 | sorter | `boolean \| function \| 'default'` | `false` | The sorter of the column. If set `'default'`, it will use a basic builtin compare function. If set to `true`, it will only display sort icon on the column, which can be used in async status. Otherwise it works like `Array.sort`'s compare function. |  |
@@ -128,14 +131,14 @@ switchable-editable
 type DataTableCreateSummary = (pageData: RowData[]) =>
   | Array<{
       [columnKey: string]: {
-        value: string | number
+        value?: VNodeChild
         colSpan?: number
         rowSpan?: number
       }
     }>
   | {
       [columnKey: string]: {
-        value: string | number
+        value?: VNodeChild
         colSpan?: number
         rowSpan?: number
       }
