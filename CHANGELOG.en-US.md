@@ -1,5 +1,42 @@
 # CHANGELOG
 
+## 2.26.2
+
+### Fixes
+
+- Fix `n-cascader` arrow's loading animation last for too long time.
+- Fix `n-select` menu doesn't follow theme.
+- Fix `n-tabs` throws error without child, closes [#809](https://github.com/TuSimple/naive-ui/issues/809).
+- Fix `n-menu`'s font color is not changed after theme is changed in chrome 99, closes [#2563](https://github.com/TuSimple/naive-ui/issues/2563). This is actual a bug of chrome, however we used a workaround and fixed it.
+- Fix `n-date-picker`'s date item click trigger area is as large as cell size only in `'date'` mode.
+
+### Feats
+
+- `n-dynamic-tags` `input` slot add `deactivate` prop, closes [#2575](https://github.com/TuSimple/naive-ui/issues/2575).
+- `n-space` add `RTL` support.
+- `n-avatar-group` add `RTL` support.
+- `n-badge` add `RTL` support.
+- `n-radio` add `RTL` support.
+- `n-auto-complete` adds `focus` method.
+- `n-auto-complete` adds `blur` method.
+
+## 2.26.1
+
+### Fixes
+
+- Fix `base-loading` use css transition rather than svg animateTrantion to prevent js blocking, close [#2506](https://github.com/TuSimple/naive-ui/issues/2506).
+- Fix `n-time` throws error caused by `getTimezoneOffset`, closes [#2545](https://github.com/TuSimple/naive-ui/issues/2545).
+- Fix `n-modal`'s mask doesn't have enter & leave transition.
+- Fix `n-timeline` has style conflict when vertical & horizontal `n-timeline` are nested, closes [#2549](https://github.com/TuSimple/naive-ui/issues/2549).
+- Fix `n-tree`'s arrow & loading switch animation isn't complete.
+
+### Feats
+
+- `n-time-line-item` adds `line-type` prop, closes [#2548](https://github.com/TuSimple/naive-ui/issues/2548).
+- `n-step` adds `icon` slot, closes [#2547](https://github.com/TuSimple/naive-ui/issues/2547).
+- `n-input-number` adds `autofocus` prop, closes [#2551](https://github.com/TuSimple/naive-ui/issues/2551).
+- `n-date-picker`'s date item click trigger area is as large as cell size, closes [#2552](https://github.com/TuSimple/naive-ui/issues/2552).
+
 ## 2.26.0
 
 ### Breaking Changes
@@ -2016,7 +2053,7 @@ See vue3.md
 ### Fixes
 
 - Fix the problem that `n-radio` can not be focused.
-- Fix the problem that `n-data-table`'s `max-height` style is broken. https://bugs.chromium.org/p/chromium/issues/detail?id=1107223
+- Fix the problem that `n-data-table`'s `max-height` style is broken. <https://bugs.chromium.org/p/chromium/issues/detail?id=1107223>
 
 ### Refactors
 

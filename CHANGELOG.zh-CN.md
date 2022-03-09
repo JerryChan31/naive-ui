@@ -1,5 +1,42 @@
 # CHANGELOG
 
+## 2.26.2
+
+### Fixes
+
+- 修复 `n-cascader` 节点箭头 loading 显示过久
+- 修复 `n-select` 菜单不随主题变化
+- 修复 `n-tabs` 不能没有子节点，关闭 [#809](https://github.com/TuSimple/naive-ui/issues/809)
+- 修复 `n-menu` 切换主题时在 chrome 99 内字体颜色异常，关闭 [#2563](https://github.com/TuSimple/naive-ui/issues/2563)，这实际上是一个 chrome 的问题，我们进行了临时的修复
+- 修复 `n-date-picker` 仅 `'date'` 类型的扩大日期点击触发范围
+
+### Feats
+
+- `n-dynamic-tags` 的 `input` slot 新增 `deactivate` 属性，关闭 [#2575](https://github.com/TuSimple/naive-ui/issues/2575)
+- `n-space` 添加 `RTL` 支持
+- `n-avatar-group` 添加 `RTL` 支持
+- `n-badge` 添加 `RTL` 支持
+- `n-radio` 添加 `RTL` 支持
+- `n-auto-complete` 新增 `focus` 方法
+- `n-auto-complete` 新增 `blur` 方法
+
+## 2.26.1
+
+### Fixes
+
+- 修复 `base-loading` 动画会被 js 堵塞，关闭 [#2506](https://github.com/TuSimple/naive-ui/issues/2506)
+- 修复 `n-time` 由于无法导入 `getTimezoneOffset` 报错的问题，关闭 [#2545](https://github.com/TuSimple/naive-ui/issues/2545)
+- 修复 `n-modal` 遮罩出现没有动画
+- 修复 `n-timeline` 在水平和非水平嵌套时的样式冲突，关闭 [#2549](https://github.com/TuSimple/naive-ui/issues/2549)
+- 修复 `n-tree` 箭头和 loading 切换时动画不完整
+
+### Feats
+
+- `n-time-line-item` 新增 `line-type` 属性，关闭 [#2548](https://github.com/TuSimple/naive-ui/issues/2548)
+- `n-step` 新增 `icon` slot，关闭 [#2547](https://github.com/TuSimple/naive-ui/issues/2547)
+- `n-input-number` 新增 `autofocus` 属性，关闭 [#2551](https://github.com/TuSimple/naive-ui/issues/2551)
+- `n-date-picker` 扩大日期点击触发范围，关闭 [#2552](https://github.com/TuSimple/naive-ui/issues/2552)
+
 ## 2.26.0
 
 ### Breaking Changes
@@ -2015,7 +2052,7 @@
 ### Fixes
 
 - 修正了 `n-radio` 无法聚焦的问题
-- 修正了 `n-data-table` 的 `max-height` 样式失效的问题 https://bugs.chromium.org/p/chromium/issues/detail?id=1107223
+- 修正了 `n-data-table` 的 `max-height` 样式失效的问题 <https://bugs.chromium.org/p/chromium/issues/detail?id=1107223>
 
 ### Refactors
 
