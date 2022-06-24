@@ -2,7 +2,8 @@ import { h, HTMLAttributes, nextTick, ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import { DataTableInst, NDataTable } from '../index'
 import type { DataTableColumns } from '../index'
-import { NButton, NButtonGroup } from '../../button'
+import { NButton } from '../../button'
+import { NButtonGroup } from '../../button-group'
 
 describe('n-data-table', () => {
   it('should work with import on demand', () => {
@@ -989,7 +990,7 @@ describe('props.columns', () => {
     const wrapper = mount(() => (
       <NDataTable columns={columns} data={data} row-key={rowKey} />
     ))
-    expect(wrapper.find('tbody .n-data-table-td--ellipsis').exists()).toBe(true)
+    expect(wrapper.find('tbody .n-data-table-td__ellipsis').exists()).toBe(true)
     expect(wrapper.find('tbody .n-ellipsis').exists()).toBe(true)
     expect(wrapper.find('tbody .n-ellipsis').attributes('style')).toContain(
       'text-overflow: ellipsis'
@@ -1114,7 +1115,7 @@ describe('props.columns', () => {
     const columns: DataTableColumns = [
       {
         type: 'expand',
-        expandable: (_, index) => index === 0,
+        expandable: (rowData) => rowData.name === 0,
         renderExpand: (rowData: any) => {
           return `${String(rowData.name)} is a good guy.`
         }

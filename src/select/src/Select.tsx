@@ -5,7 +5,6 @@ import {
   toRef,
   defineComponent,
   PropType,
-  nextTick,
   watch,
   Transition,
   withDirectives,
@@ -30,6 +29,7 @@ import {
   RenderOption
 } from '../../_internal/select-menu/src/interface'
 import { RenderTag } from '../../_internal/selection/src/interface'
+import type { FormValidationStatus } from '../../form/src/interface'
 import {
   useTheme,
   useConfig,
@@ -38,7 +38,12 @@ import {
   useThemeClass
 } from '../../_mixins'
 import type { ThemeProps } from '../../_mixins'
-import { call, useAdjustedTo, warnOnce } from '../../_utils'
+import {
+  call,
+  markEventEffectPerformed,
+  useAdjustedTo,
+  warnOnce
+} from '../../_utils'
 import type { MaybeArray, ExtractPublicPropTypes } from '../../_utils'
 import {
   NInternalSelectMenu,
@@ -48,10 +53,10 @@ import {
 import type { InternalSelectionInst } from '../../_internal'
 import { selectLight, SelectTheme } from '../styles'
 import {
-  tmOptions,
   createValOptMap,
   filterOptions,
-  defaultFilter
+  createTmOptions,
+  patternMatched
 } from './utils'
 import type {
   SelectInst,
@@ -65,7 +70,8 @@ import type {
   OnUpdateValueImpl,
   Value,
   Size,
-  ValueAtom
+  ValueAtom,
+  SelectBaseOption
 } from './interface'
 import style from './styles/index.cssr'
 
@@ -101,12 +107,9 @@ const selectProps = {
   },
   remote: Boolean,
   loading: Boolean,
-  filter: {
-    type: Function as PropType<
-    (pattern: string, option: SelectOption) => boolean
-    >,
-    default: defaultFilter
-  },
+  filter: Function as PropType<
+  (pattern: string, option: SelectOption) => boolean
+  >,
   placement: {
     type: String as PropType<FollowerPlacement>,
     default: 'bottom-start'
@@ -116,19 +119,12 @@ const selectProps = {
     default: 'trigger'
   },
   tag: Boolean,
-  onCreate: {
-    type: Function as PropType<(label: string) => SelectOption>,
-    default: (label: string) => ({
-      label: label,
-      value: label
-    })
-  },
+  onCreate: Function as PropType<(label: string) => SelectOption>,
   fallbackOption: {
-    type: [Function, Boolean] as PropType<SelectFallbackOption | false>,
-    default: () => (value: string | number) => ({
-      label: String(value),
-      value
-    })
+    type: [Function, Boolean] as PropType<
+    SelectFallbackOption | false | undefined
+    >,
+    default: undefined
   },
   show: {
     type: Boolean as PropType<boolean | undefined>,
@@ -146,6 +142,18 @@ const selectProps = {
   virtualScroll: {
     type: Boolean,
     default: true
+  },
+  labelField: {
+    type: String,
+    default: 'label'
+  },
+  valueField: {
+    type: String,
+    default: 'value'
+  },
+  childrenField: {
+    type: String,
+    default: 'children'
   },
   renderLabel: Function as PropType<RenderLabel>,
   renderOption: Function as PropType<RenderOption>,
@@ -182,6 +190,11 @@ const selectProps = {
     default: 'show'
   },
   resetMenuOnOptionsChange: {
+    type: Boolean,
+    default: true
+  },
+  status: String as PropType<FormValidationStatus>,
+  internalShowCheckmark: {
     type: Boolean,
     default: true
   },
@@ -235,13 +248,22 @@ export default defineComponent({
     )
     const focusedRef = ref(false)
     const patternRef = ref('')
-    const treeMateRef = computed(() =>
-      createTreeMate<SelectOption, SelectGroupOption, SelectIgnoredOption>(
-        filteredOptionsRef.value,
-        tmOptions
+    const treeMateRef = computed(() => {
+      const { valueField, childrenField } = props
+      const options = createTmOptions(valueField, childrenField)
+      return createTreeMate<
+      SelectOption,
+      SelectGroupOption,
+      SelectIgnoredOption
+      >(filteredOptionsRef.value, options)
+    })
+    const valOptMapRef = computed(() =>
+      createValOptMap(
+        localOptionsRef.value,
+        props.valueField,
+        props.childrenField
       )
     )
-    const valOptMapRef = computed(() => createValOptMap(localOptionsRef.value))
     const uncontrolledShowRef = ref(false)
     const mergedShowRef = useMergedState(
       toRef(props, 'show'),
@@ -256,13 +278,21 @@ export default defineComponent({
     })
     const compitableOptionsRef = useCompitable(props, ['items', 'options'])
 
+    const emptyArray: SelectOption[] = []
     const createdOptionsRef = ref<SelectOption[]>([])
     const beingCreatedOptionsRef = ref<SelectOption[]>([])
     const memoValOptMapRef = ref(new Map<string | number, SelectOption>())
 
     const wrappedFallbackOptionRef = computed(() => {
       const { fallbackOption } = props
-      if (!fallbackOption) return false
+      if (fallbackOption === undefined) {
+        const { labelField, valueField } = props
+        return (value: string | number) => ({
+          [labelField]: String(value),
+          [valueField]: value
+        })
+      }
+      if (fallbackOption === false) return false
       return (value: string | number) => {
         return Object.assign(
           (fallbackOption as SelectFallbackOptionImpl)(value),
@@ -279,6 +309,24 @@ export default defineComponent({
         ) as SelectMixedOption[]
       ).concat(compitableOptionsRef.value)
     })
+    const resolvedFilterRef = computed(() => {
+      const { labelField, valueField } = props
+      return (pattern: string, option: SelectBaseOption): boolean => {
+        if (!option) return false
+        const label = option[labelField]
+        if (typeof label === 'string') {
+          return patternMatched(pattern, label)
+        }
+        const value = option[valueField]
+        if (typeof value === 'string') {
+          return patternMatched(pattern, value)
+        }
+        if (typeof value === 'number') {
+          return patternMatched(pattern, String(value))
+        }
+        return false
+      }
+    })
     const filteredOptionsRef = computed(() => {
       if (props.remote) {
         return compitableOptionsRef.value
@@ -288,8 +336,12 @@ export default defineComponent({
         if (!pattern.length || !props.filterable) {
           return localOptions
         } else {
-          const { filter } = props
-          return filterOptions(localOptions, filter, pattern)
+          return filterOptions(
+            localOptions,
+            resolvedFilterRef.value,
+            pattern,
+            props.childrenField
+          )
         }
       }
     })
@@ -383,13 +435,20 @@ export default defineComponent({
       if (remote) {
         const { value: memoValOptMap } = memoValOptMapRef
         if (multiple) {
+          const { valueField } = props
           selectedOptionsRef.value?.forEach((option) => {
-            memoValOptMap.set(option.value, option)
+            memoValOptMap.set(
+              option[valueField] as NonNullable<SelectOption['value']>,
+              option
+            )
           })
         } else {
           const option = selectedOptionRef.value
           if (option) {
-            memoValOptMap.set(option.value, option)
+            memoValOptMap.set(
+              option[props.valueField] as NonNullable<SelectOption['value']>,
+              option
+            )
           }
         }
       }
@@ -415,7 +474,7 @@ export default defineComponent({
     }
     function handleMenuAfterLeave (): void {
       patternRef.value = ''
-      beingCreatedOptionsRef.value = []
+      beingCreatedOptionsRef.value = emptyArray
     }
     const activeWithoutMenuOpenRef = ref(false)
     function onTriggerInputFocus (): void {
@@ -501,57 +560,75 @@ export default defineComponent({
     }
     function handleToggleByOption (option: SelectOption): void {
       if (mergedDisabledRef.value) return
-      const { tag, remote, clearFilterAfterSelect } = props
+      const { tag, remote, clearFilterAfterSelect, valueField } = props
       if (tag && !remote) {
         const { value: beingCreatedOptions } = beingCreatedOptionsRef
         const beingCreatedOption = beingCreatedOptions[0] || null
         if (beingCreatedOption) {
           createdOptionsRef.value.push(beingCreatedOption)
-          beingCreatedOptionsRef.value = []
+          beingCreatedOptionsRef.value = emptyArray
         }
       }
       if (remote) {
-        memoValOptMapRef.value.set(option.value, option)
+        memoValOptMapRef.value.set(
+          option[valueField] as NonNullable<SelectOption['value']>,
+          option
+        )
       }
       if (props.multiple) {
         const changedValue = createClearedMultipleSelectValue(
           mergedValueRef.value
         )
-        const index = changedValue.findIndex((value) => value === option.value)
+        const index = changedValue.findIndex(
+          (value) =>
+            value === (option[valueField] as NonNullable<SelectOption['value']>)
+        )
         if (~index) {
           changedValue.splice(index, 1)
           if (tag && !remote) {
-            const createdOptionIndex = getCreatedOptionIndex(option.value)
+            const createdOptionIndex = getCreatedOptionIndex(
+              option[valueField] as NonNullable<SelectOption['value']>
+            )
             if (~createdOptionIndex) {
               createdOptionsRef.value.splice(createdOptionIndex, 1)
               if (clearFilterAfterSelect) patternRef.value = ''
             }
           }
         } else {
-          changedValue.push(option.value)
+          changedValue.push(
+            option[valueField] as NonNullable<SelectOption['value']>
+          )
           if (clearFilterAfterSelect) patternRef.value = ''
         }
         doUpdateValue(changedValue, getMergedOptions(changedValue))
       } else {
         if (tag && !remote) {
-          const createdOptionIndex = getCreatedOptionIndex(option.value)
+          const createdOptionIndex = getCreatedOptionIndex(
+            option[valueField] as NonNullable<SelectOption['value']>
+          )
           if (~createdOptionIndex) {
             createdOptionsRef.value = [
               createdOptionsRef.value[createdOptionIndex]
             ]
           } else {
-            createdOptionsRef.value = []
+            createdOptionsRef.value = emptyArray
           }
         }
         focusSelection()
         closeMenu()
-        doUpdateValue(option.value, option)
+        doUpdateValue(
+          option[valueField] as NonNullable<SelectOption['value']>,
+          option
+        )
       }
     }
     function getCreatedOptionIndex (optionValue: string | number): number {
       const createdOptions = createdOptionsRef.value
       return createdOptions.findIndex(
-        (createdOption) => createdOption.value === optionValue
+        (createdOption) =>
+          (createdOption[props.valueField] as NonNullable<
+          SelectOption['value']
+          >) === optionValue
       )
     }
     function handlePatternInput (e: InputEvent): void {
@@ -564,19 +641,23 @@ export default defineComponent({
       doSearch(value)
       if (tag && !remote) {
         if (!value) {
-          beingCreatedOptionsRef.value = []
+          beingCreatedOptionsRef.value = emptyArray
           return
         }
-        const optionBeingCreated = props.onCreate(value)
+        const { onCreate } = props
+        const optionBeingCreated = onCreate
+          ? onCreate(value)
+          : { [props.labelField]: value, [props.valueField]: value }
+        const { valueField } = props
         if (
           compitableOptionsRef.value.some(
-            (option) => option.value === optionBeingCreated.value
+            (option) => option[valueField] === optionBeingCreated[valueField]
           ) ||
           createdOptionsRef.value.some(
-            (option) => option.value === optionBeingCreated.value
+            (option) => option[valueField] === optionBeingCreated[valueField]
           )
         ) {
-          beingCreatedOptionsRef.value = []
+          beingCreatedOptionsRef.value = emptyArray
         } else {
           beingCreatedOptionsRef.value = [optionBeingCreated]
         }
@@ -596,7 +677,7 @@ export default defineComponent({
       }
     }
     function handleMenuMousedown (e: MouseEvent): void {
-      if (!happensIn(e, 'action')) e.preventDefault()
+      if (!happensIn(e, 'action') && !happensIn(e, 'empty')) e.preventDefault()
     }
     // scroll events on menu
     function handleMenuScroll (e: Event): void {
@@ -605,15 +686,14 @@ export default defineComponent({
     // keyboard events
     // also for menu keydown
     function handleKeydown (e: KeyboardEvent): void {
-      switch (e.code) {
-        case 'Space':
+      switch (e.key) {
+        case ' ':
           if (props.filterable) break
           else {
             e.preventDefault()
           }
         // eslint-disable-next-line no-fallthrough
         case 'Enter':
-        case 'NumpadEnter':
           if (!triggerRef.value?.isCompositing) {
             if (mergedShowRef.value) {
               const pendingTmNode = menuRef.value?.getPendingTmNode()
@@ -628,7 +708,9 @@ export default defineComponent({
               if (props.tag && activeWithoutMenuOpenRef.value) {
                 const beingCreatedOption = beingCreatedOptionsRef.value[0]
                 if (beingCreatedOption) {
-                  const optionValue = beingCreatedOption.value
+                  const optionValue = beingCreatedOption[
+                    props.valueField
+                  ] as NonNullable<SelectOption['value']>
                   const { value: mergedValue } = mergedValueRef
                   if (props.multiple) {
                     if (
@@ -665,7 +747,10 @@ export default defineComponent({
           }
           break
         case 'Escape':
-          closeMenu()
+          if (mergedShowRef.value) {
+            markEventEffectPerformed(e)
+            closeMenu()
+          }
           triggerRef.value?.focus()
           break
       }
@@ -676,19 +761,13 @@ export default defineComponent({
     function focusSelectionInput (): void {
       triggerRef.value?.focusInput()
     }
-    function syncPosition (): void {
+    function handleTriggerOrMenuResize (): void {
+      if (!mergedShowRef.value) return
       followerRef.value?.syncPosition()
     }
     updateMemorizedOptions()
     watch(toRef(props, 'options'), updateMemorizedOptions)
-    watch(filteredOptionsRef, () => {
-      if (!mergedShowRef.value) return
-      void nextTick(syncPosition)
-    })
-    watch(mergedValueRef, () => {
-      if (!mergedShowRef.value) return
-      void nextTick(syncPosition)
-    })
+
     const exposedMethods: SelectInst = {
       focus: () => {
         triggerRef.value?.focus()
@@ -735,6 +814,7 @@ export default defineComponent({
       inlineThemeDisabled,
       onTriggerInputFocus,
       onTriggerInputBlur,
+      handleTriggerOrMenuResize,
       handleMenuFocus,
       handleMenuBlur,
       handleMenuTabOut,
@@ -746,7 +826,6 @@ export default defineComponent({
       handleTriggerBlur,
       handleTriggerFocus,
       handleKeydown,
-      syncPosition,
       handleMenuAfterLeave,
       handleMenuClickOutside,
       handleMenuScroll,
@@ -789,6 +868,8 @@ export default defineComponent({
                       disabled={this.mergedDisabled}
                       size={this.mergedSize}
                       theme={this.mergedTheme.peers.InternalSelection}
+                      labelField={this.labelField}
+                      valueField={this.valueField}
                       themeOverrides={
                         this.mergedTheme.peerOverrides.InternalSelection
                       }
@@ -803,6 +884,7 @@ export default defineComponent({
                       onKeydown={this.handleKeydown}
                       onPatternBlur={this.onTriggerInputBlur}
                       onPatternFocus={this.onTriggerInputFocus}
+                      onResize={this.handleTriggerOrMenuResize}
                     >
                       {{
                         arrow: () => [this.$slots.arrow?.()]
@@ -843,6 +925,7 @@ export default defineComponent({
                             <NInternalSelectMenu
                               {...this.menuProps}
                               ref="menuRef"
+                              onResize={this.handleTriggerOrMenuResize}
                               inlineThemeDisabled={this.inlineThemeDisabled}
                               virtualScroll={
                                 this.consistentMenuWidth && this.virtualScroll
@@ -854,6 +937,8 @@ export default defineComponent({
                               ]}
                               clsPrefix={this.mergedClsPrefix}
                               focusable
+                              labelField={this.labelField}
+                              valueField={this.valueField}
                               autoPending={true}
                               theme={this.mergedTheme.peers.InternalSelectMenu}
                               themeOverrides={
@@ -862,7 +947,7 @@ export default defineComponent({
                               }
                               treeMate={this.treeMate}
                               multiple={this.multiple}
-                              size={'medium'}
+                              size="medium"
                               renderOption={this.renderOption}
                               renderLabel={this.renderLabel}
                               value={this.mergedValue}
@@ -875,6 +960,7 @@ export default defineComponent({
                               onTabOut={this.handleMenuTabOut}
                               onMousedown={this.handleMenuMousedown}
                               show={this.mergedShow}
+                              showCheckmark={this.internalShowCheckmark}
                               resetMenuOnOptionsChange={
                                 this.resetMenuOnOptionsChange
                               }
@@ -887,9 +973,21 @@ export default defineComponent({
                             this.displayDirective === 'show'
                               ? [
                                   [vShow, this.mergedShow],
-                                  [clickoutside, this.handleMenuClickOutside]
+                                  [
+                                    clickoutside,
+                                    this.handleMenuClickOutside,
+                                    undefined as unknown as string,
+                                    { capture: true }
+                                  ]
                                 ]
-                              : [[clickoutside, this.handleMenuClickOutside]]
+                              : [
+                                  [
+                                    clickoutside,
+                                    this.handleMenuClickOutside,
+                                    undefined as unknown as string,
+                                    { capture: true }
+                                  ]
+                                ]
                           )
                         }
                       }}
